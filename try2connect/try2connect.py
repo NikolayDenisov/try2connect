@@ -9,7 +9,7 @@ from urllib import parse
 
 from config import CACHED_ADDR_FILE
 from gevent import socket
-
+from dns import resolver
 
 class Cache:
     """
@@ -36,7 +36,10 @@ class Cache:
             self.raw_cache = json.loads(hosts)
             return self.raw_cache.get(self.host, None)
         else:
-            return dict()
+            res = resolver.Resolver()
+            res.nameservers = ['8.8.8.8']
+            answers = res.query('self.host')
+            return self.raw_cache[self.host] = [ip.address for ip in answers]
 
     def set(self):
         """
