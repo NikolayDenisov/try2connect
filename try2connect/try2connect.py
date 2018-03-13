@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
+import configparser
 import json
 import logging
 import os
 import shutil
 from urllib import parse
 
-from config import CACHED_ADDR_FILE
-from gevent import socket
 from dns import resolver
+from gevent import socket
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+
 
 class Cache:
     """
@@ -19,39 +23,41 @@ class Cache:
     def __init__(self, host):
         self.host = host
         self.raw_cache = {}
-        if not os.path.exists(CACHED_ADDR_FILE):
+        if not os.path.exists(config['DIRS']['CACHED_ADDR_FILE']):
             logging.info('Create cache-file with IP-address')
-            os.system('touch {0}'.format(CACHED_ADDR_FILE))
+            os.system('touch {0}'.format(config['DIRS']['CACHED_ADDR_FILE']))
             self.set()
-        self.cache = open(CACHED_ADDR_FILE, "r+")
+        self.cache = open(config['DIRS']['CACHED_ADDR_FILE'], "r+")
 
     def get(self):
         """
         Get IP-address for domain from cache
         :return:
         """
-        with open(CACHED_ADDR_FILE) as cache:
+        with open(config['DIRS']['CACHED_ADDR_FILE']) as cache:
             hosts = cache.read()
         if hosts:
             self.raw_cache = json.loads(hosts)
-            return self.raw_cache.get(self.host, None)
+            return self.raw_cache.get(self.host)
         else:
             res = resolver.Resolver()
-            res.nameservers = ['8.8.8.8']
-            answers = res.query('self.host')
-            return self.raw_cache[self.host] = [ip.address for ip in answers]
+            res.nameservers = [config['DNS']['DNS1']]
+            answers = res.query(self.host)
+            l = [ip.address for ip in answers]
+            self.raw_cache[self.host] = l
+            return
 
     def set(self):
         """
         Update or create new record in cache
         :return:
         """
-        tmp_filename = "{}.tmp".format(CACHED_ADDR_FILE)
+        tmp_filename = "{}.tmp".format(config['DIRS']['CACHED_ADDR_FILE'])
         ips = socket.gethostbyname_ex(self.host)[-1]
         self.raw_cache[self.host] = ips
         with open(tmp_filename, 'w+') as f:
             f.write(json.dumps(self.raw_cache, indent=2))
-        shutil.move(tmp_filename, CACHED_ADDR_FILE)
+        shutil.move(tmp_filename, config['DIRS']['CACHED_ADDR_FILE'])
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cache.close()
@@ -84,7 +90,6 @@ def parse_args():
 
 
 def main():
-    socket.setdefaulttimeout(1)
     init_logger()
     args = parse_args()
     domain = parse.urlparse(args.url)
