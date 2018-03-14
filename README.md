@@ -22,3 +22,7 @@ git clone https://github.com/NikolayDenisov/try2connect.git
 cd try2connect
 sudo python3 setup.py install
 ```
+
+#TODO
+
+* Add timeout for resolv

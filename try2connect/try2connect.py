@@ -31,18 +31,17 @@ class Cache:
         Get IP-address for domain from cache
         :return:
         """
-        with open(cache_file) as cache:
-            hosts = cache.read()
-        if hosts:
-            self.raw_cache = json.loads(hosts)
+        if self.host in self.raw_cache:
             return self.raw_cache.get(self.host)
         else:
+            #TODO: mv to push_host
             res = resolver.Resolver()
-            res.nameservers = DNS1
+            res.nameservers = [DNS1]
             answers = res.query(self.host)
             ips = [ip.address for ip in answers]
             self.raw_cache[self.host] = ips
-            return self.raw_cache
+            self.cache = self.raw_cache
+            return self.raw_cache[self.host]
 
     def push_host(self):
         """
