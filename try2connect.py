@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
-import configparser
 import json
 import logging
-import os
+import random
 import shutil
+import os
 from urllib import parse
 
 from dns import resolver
 from gevent import socket
 
-config = configparser.ConfigParser()
-config.read('config.ini')
+DNS1 = "8.8.8.8"
+
+cache_file = '{0}/try2connect.hosts'.format(os.path.expanduser('~'))
 
 
 class Cache:
@@ -22,42 +23,38 @@ class Cache:
 
     def __init__(self, host):
         self.host = host
-        self.raw_cache = {}
-        if not os.path.exists(config['DIRS']['CACHED_ADDR_FILE']):
-            logging.info('Create cache-file with IP-address')
-            os.system('touch {0}'.format(config['DIRS']['CACHED_ADDR_FILE']))
-            self.set()
-        self.cache = open(config['DIRS']['CACHED_ADDR_FILE'], "r+")
+        self.cache = open(cache_file, 'r+')
+        self.raw_cache = json.load(self.cache)
 
-    def get(self):
+    def fetch_ip_address(self):
         """
         Get IP-address for domain from cache
         :return:
         """
-        with open(config['DIRS']['CACHED_ADDR_FILE']) as cache:
+        with open(cache_file) as cache:
             hosts = cache.read()
         if hosts:
             self.raw_cache = json.loads(hosts)
             return self.raw_cache.get(self.host)
         else:
             res = resolver.Resolver()
-            res.nameservers = [config['DNS']['DNS1']]
+            res.nameservers = DNS1
             answers = res.query(self.host)
-            l = [ip.address for ip in answers]
-            self.raw_cache[self.host] = l
-            return
+            ips = [ip.address for ip in answers]
+            self.raw_cache[self.host] = ips
+            return self.raw_cache
 
-    def set(self):
+    def push_host(self):
         """
         Update or create new record in cache
         :return:
         """
-        tmp_filename = "{}.tmp".format(config['DIRS']['CACHED_ADDR_FILE'])
+        tmp_file = '{}.tmp'.format(cache_file)
         ips = socket.gethostbyname_ex(self.host)[-1]
         self.raw_cache[self.host] = ips
-        with open(tmp_filename, 'w+') as f:
+        with open(tmp_file, 'w+') as f:
             f.write(json.dumps(self.raw_cache, indent=2))
-        shutil.move(tmp_filename, config['DIRS']['CACHED_ADDR_FILE'])
+        shutil.move(tmp_file, cache_file)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cache.close()
@@ -89,24 +86,35 @@ def parse_args():
     return args
 
 
+def prepare():
+    """
+    Create all env
+    :return:
+    """
+    if not os.path.exists(cache_file):
+        with open(cache_file, 'w+') as f:
+            f.write('{}')
+
+
 def main():
+    prepare()
     init_logger()
     args = parse_args()
     domain = parse.urlparse(args.url)
+    cache = Cache(domain.hostname)
     new_url = ''
     try:
-        cache = Cache(domain.hostname)
-        cache.set()
+        cache.push_host()
         new_url = args.url
     except socket.gaierror as e:
         logging.error(e)
-        addr = cache.get()
+        addr = cache.fetch_ip_address()
         if not addr:
             logging.error('Can`t resolve domain and find IP in cache')
             new_url = args.url
         else:
-            # TODO: get random ipaddr and convert to string
-            new_url = domain._replace(netloc=''.join(addr)).geturl()
+            ip = ''.join(random.choice(addr))
+            new_url = domain._replace(netloc=ip).geturl()
     finally:
         print(new_url)
 

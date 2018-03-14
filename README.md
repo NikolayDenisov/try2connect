@@ -15,8 +15,4 @@ $ "http://1.2.3.4"
 
 ```
 
-# TODO
-
-* get random ipaddr `ips = socket.gethostbyname_ex(self.host)[-1]`
-* convert to string `new_url = domain._replace(netloc=''.join(addr)).geturl()`
-* set timeout for resolv
+# Install
