@@ -16,3 +16,9 @@ $ "http://1.2.3.4"
 ```
 
 # Install
+
+```bash
+git clone https://github.com/NikolayDenisov/try2connect.git
+cd try2connect
+sudo python3 setup.py install
+```

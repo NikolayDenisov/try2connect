@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from try2connect import main
+from try2connect import try2connect
 
 if __name__ == '__main__':
-    main()
+    try2connect.main()
