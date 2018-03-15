@@ -25,4 +25,4 @@ sudo python3 setup.py install
 
 #TODO
 
-* Add timeout for resolv
+* Return url if  all DNS not working
