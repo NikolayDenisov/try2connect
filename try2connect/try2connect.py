@@ -8,10 +8,9 @@ import shutil
 import os
 from urllib import parse
 
-from dns import resolver
-from gevent import socket
+from dns import resolver, exception
 
-DNS1 = "8.8.8.8"
+DNS1 = "8.8.8.2"
 
 cache_file = '{0}/try2connect.hosts'.format(os.path.expanduser('~'))
 
@@ -34,29 +33,27 @@ class Cache:
         if self.host in self.raw_cache:
             return self.raw_cache.get(self.host)
         else:
-            #TODO: mv to push_host
-            res = resolver.Resolver()
-            res.nameservers = [DNS1]
-            answers = res.query(self.host)
-            ips = [ip.address for ip in answers]
-            self.raw_cache[self.host] = ips
+            self.resolv(default=True)
             self.cache = self.raw_cache
             return self.raw_cache[self.host]
 
-    def push_host(self):
-        """
-        Update or create new record in cache
-        :return:
-        """
-        tmp_file = '{}.tmp'.format(cache_file)
-        ips = socket.gethostbyname_ex(self.host)[-1]
+    def resolv(self, default=None):
+        res = resolver.Resolver()
+        res.lifetime = 1
+        if default:
+            res.nameservers = [DNS1]
+        answers = res.query(self.host)
+        ips = [ip.address for ip in answers]
         self.raw_cache[self.host] = ips
+        tmp_file = '{}.tmp'.format(cache_file)
         with open(tmp_file, 'w+') as f:
             f.write(json.dumps(self.raw_cache, indent=2))
         shutil.move(tmp_file, cache_file)
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.cache.close()
+
+def __exit__(self, exc_type, exc_val, exc_tb):
+    self.cache.close()
+    return exc_type, exc_val, exc_tb
 
 
 def init_logger():
@@ -103,9 +100,9 @@ def main():
     cache = Cache(domain.hostname)
     new_url = ''
     try:
-        cache.push_host()
+        cache.resolv()
         new_url = args.url
-    except socket.gaierror as e:
+    except exception.Timeout as e:
         logging.error(e)
         addr = cache.fetch_ip_address()
         if not addr:
@@ -114,6 +111,8 @@ def main():
         else:
             ip = ''.join(random.choice(addr))
             new_url = domain._replace(netloc=ip).geturl()
+    except resolver.NoNameservers:
+        new_url = args.url
     finally:
         print(new_url)
 
