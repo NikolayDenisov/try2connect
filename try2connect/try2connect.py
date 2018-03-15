@@ -10,7 +10,7 @@ from urllib import parse
 
 from dns import resolver, exception
 
-DNS1 = "8.8.8.2"
+DNS1 = "8.8.8.8"
 
 cache_file = '{0}/try2connect.hosts'.format(os.path.expanduser('~'))
 
@@ -33,7 +33,10 @@ class Cache:
         if self.host in self.raw_cache:
             return self.raw_cache.get(self.host)
         else:
-            self.resolv(default=True)
+            try:
+                self.resolv(default=True)
+            except exception.Timeout:
+                return
             self.cache = self.raw_cache
             return self.raw_cache[self.host]
 
