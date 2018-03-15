@@ -24,5 +24,4 @@ sudo python3 setup.py install
 ```
 
 #TODO
-
-* Return url if  all DNS not working
+* Do refactoring
