@@ -3,14 +3,15 @@
 import argparse
 import json
 import logging
+import os
 import random
 import shutil
-import os
 from urllib import parse
 
 from dns import resolver, exception
 
 DNS1 = "8.8.8.8"
+DNS_TIMEOUT = 1
 
 cache_file = '{0}/try2connect.hosts'.format(os.path.expanduser('~'))
 
@@ -37,12 +38,14 @@ class Cache:
                 self.resolv(default=True)
             except exception.Timeout:
                 return
+            except resolver.NXDOMAIN:
+                return
             self.cache = self.raw_cache
             return self.raw_cache[self.host]
 
     def resolv(self, default=None):
         res = resolver.Resolver()
-        res.lifetime = 1
+        res.lifetime = DNS_TIMEOUT
         if default:
             res.nameservers = [DNS1]
         answers = res.query(self.host)
@@ -107,12 +110,12 @@ def main():
         new_url = args.url
     except exception.Timeout as e:
         logging.error(e)
-        addr = cache.fetch_ip_address()
-        if not addr:
+        ips = cache.fetch_ip_address()
+        if not ips:
             logging.error('Can`t resolve domain and find IP in cache')
             new_url = args.url
         else:
-            ip = ''.join(random.choice(addr))
+            ip = ''.join(random.choice(ips))
             new_url = domain._replace(netloc=ip).geturl()
     except resolver.NoNameservers:
         new_url = args.url
